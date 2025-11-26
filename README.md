@@ -117,10 +117,3 @@ Pull requests welcome.
 Add new data feeds, sentiment engines, chart formats or ML pipelines.
 
 ⭐ If this helped — star the repo!
-
-Would you like me to generate:
-📌 Repo banner
-📌 Badges (Build status / Version / Made with n8n / GPT-4)
-📌 A Logo for AI Analyst
-📌 GitHub Wiki documentation
-Reply yes and choose one.
