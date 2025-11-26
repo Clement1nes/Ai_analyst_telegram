@@ -110,7 +110,90 @@ Delivered via Telegram in < 4000 characters, auto-split if longer.
 
 🔗 Plug-in exchange API integration (Binance / Alpaca / IBKR)
 
+🧠 Customising the AI Analyst With Prompts
 
+This workflow is designed to be fully AI-tunable — meaning you can change the tone, style, depth, risk-focus and output structure by simply modifying one node:
+
+Node to Edit:
+
+📎 ✍️ Prepare AI Prompt → prompt string
+
+This is where GPT-4 is instructed how to think, what to prioritise, and how to format the final briefing.
+
+🔥 How to Customise the AI Output
+You want it more…	Change in Prompt
+Technical / Quant Heavy	Add TA focus, macro data priority, volatility analysis
+Retail-Friendly	Increase simplicity + reduce jargon
+Aggressive Alpha Seeking	Tell it to highlight momentum breakouts, earnings volatility
+Risk-Controlled	Emphasize drawdown risk, macro uncertainty alerts
+News-Driven	Increase importance of headlines & cross-market impact
+Shorter Output	Lower word count / bullet structure
+Longer & Deep Analysis	Raise detail caps + enable expansion sections
+🔧 Example Prompt Modifications
+1) More Quantitative + Institutional Tone
++ Prioritise volatility regime, liquidity trend, macro drivers.
++ Include implied volatility references if VIX rises >5%.
++ Highlight divergence between price & sentiment as a risk signal.
++ If trends conflict, emphasize caution > opportunity.
+
+2) More Retail, Simpler & Punchier for Telegram
++ Reduce analysis to clearest 3 takeaways.
++ Replace jargon with human language: "uptrend gaining energy" > "momentum acceleration".
++ Headlines should affect portfolio decisions directly.
+
+3) Crypto-Heavy Mode
++ Weight crypto movements equal to equities.
++ Detect BTC dominance shifts + risk-rotation signals.
++ Mention on-chain activity if included later.
+
+4) AI Reads Like a Hedge Fund Morning Meeting
++ Write like a PM briefing analysts with position implications.
++ Include scenarios, if-else market reactions, possible flows.
++ Close with forward-looking positioning framework.
+
+🧠 How to Prompt AI Live
+
+You can also override the behaviour dynamically (without editing code) using instruction injections:
+
+Method A — Modify Prepare AI Prompt node text before run
+
+Change summary structure, tone, risk alerts, section ordering etc.
+
+Method B — Add a Custom Directive field to config
+
+Example:
+
+config.userProfile.customInstruction = 
+"Focus strongly on currency volatility & macro until further notice.";
+
+
+Then inject into prompt:
+
++ Custom Instruction: ${profile.customInstruction}
+
+Method C — Toggle output behaviour with boolean flags
+analysis: {
+   enable_macro_priority: true,
+   include_long_form_technical: false,
+   short_output_mode: true
+}
+
+
+Modify prompt to respond conditionally:
+
++ If short_output_mode = true → compress to <2000 chars max.
++ If enable_macro_priority = true → start with rates, CPI, yields, USD.
+
+⚡ Example Full Override Prompt You Can Paste In
+Rewrite briefing with:
+- Institutional tone similar to Goldman/JP morning notes.
+- Clear bullish/bearish stance on each watchlist item.
+- Highlight only 2 highest-conviction ideas.
+- Reduce emojis by 50%.
+- End with forward-looking catalysts in next 48H.
+
+
+Paste → run → instant change in report behaviour.
 
 🤝 Contribute
 Pull requests welcome.
