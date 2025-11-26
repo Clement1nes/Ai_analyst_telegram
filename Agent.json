@@ -1,0 +1,1016 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "url": "https://feeds.finance.yahoo.com/rss/2.0/headline?s=AAPL&region=US&lang=en-US",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "09e5e1f2-de4b-4d87-b738-a1f139a120db",
+      "name": "📰 Yahoo News RSS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -688,
+        544
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// FIXED: Normalizes all possible Yahoo Finance formats with symbol preservation\n\nconst items = $input.all();\n\n// Get the symbols from the previous node to match them up\nlet symbolItems = [];\ntry {\n  symbolItems = $('📊 Prepare Symbols').all();\n} catch (e) {\n  symbolItems = [];\n}\n\nfunction safe(obj) {\n  return (obj && typeof obj === \"object\" && !Array.isArray(obj)) ? obj : {};\n}\n\nconst results = [];\n\nfor (let i = 0; i < items.length; i++) {\n  const yahoo = safe(items[i].json);\n  \n  // Get symbol from the original prepare symbols node if available\n  const symData = safe(symbolItems[i]?.json || {});\n  \n  // Try to extract symbol from multiple possible locations\n  let symbol = symData.symbol || \n               yahoo?.chart?.result?.[0]?.meta?.symbol || \n               yahoo?.symbol || \n               `UNKNOWN_${i}`;\n\n  const chart =\n    yahoo?.chart?.result ? yahoo.chart :\n    yahoo?.data?.chart?.result ? yahoo.data.chart :\n    yahoo?.finance?.chart?.result ? yahoo.finance.chart :\n    null;\n\n  results.push({\n    json: {\n      symbol: symbol,\n      chart: chart,\n      valid: chart !== null && chart.result && chart.result.length > 0\n    }\n  });\n}\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -544,
+        -160
+      ],
+      "id": "06712be9-ca08-4332-ae9d-4461e4598663",
+      "name": "Normalize Yahoo Output"
+    },
+    {
+      "parameters": {
+        "url": "=https://query1.finance.yahoo.com/v8/finance/chart/{{ $json.symbol }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "interval",
+              "value": "1d"
+            },
+            {
+              "name": "range",
+              "value": "5d"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 n8n-FinanceBot"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "1bd44b9b-8666-48c0-b4ce-1623d688deaa",
+      "name": "📈 Yahoo Finance Chart1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -752,
+        -160
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Error notification\nconst errorData = $input.first().json;\n\nreturn [{\n  json: {\n    errorMessage: `⚠️ *Financial Analyst Workflow Error*\\n\\nAn error occurred during execution:\\n\\`${JSON.stringify(errorData, null, 2).substring(0, 500)}\\`\\n\\nPlease check the workflow logs.`,\n    chatId: '-5029947690'\n  }\n}];"
+      },
+      "id": "e209e39c-71bb-495d-8d88-a0d735268621",
+      "name": "❌ Error Handler",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1248,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.errorMessage }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "a2180c52-4413-4d60-a99c-2ebf5a3977d5",
+      "name": "📨 Send Error Alert",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1472,
+        192
+      ],
+      "webhookId": "b288ec7d-f892-4732-9a26-86b420e531fa",
+      "credentials": {
+        "telegramApi": {
+          "id": "hbDLbliKJ6Iny5X6",
+          "name": "Telegram account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "id": "d48f032f-94c9-40f0-86aa-3475777caf2a",
+      "name": "🔗 Merge Reddit+Market",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        -224,
+        -592
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract subreddits for parallel processing\nconst config = $input.first().json;\nconst subreddits = config.subreddits.map(sub => ({\n  ...sub,\n  userProfile: config.userProfile,\n  analysis: config.analysis\n}));\n\nreturn subreddits.map(sub => ({ json: sub }));"
+      },
+      "id": "86023c2c-0e38-4e9f-9a53-47ace1fb9bd0",
+      "name": "📋 Split Subreddits1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1168,
+        -400
+      ]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4",
+          "mode": "list",
+          "cachedResultName": "GPT-4"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=You are an elite financial analyst and macro strategist. Your job is to produce a highly compressed, insight-dense daily market briefing tailored to the user's investment profile.\n\nYou will receive a JSON object called `data` with the following sections:\n\n- userProfile\n- marketOverview\n- watchlistPerformance\n- topGainers\n- topLosers\n- currencies\n- crypto\n- trendingTickers\n- redditInsights\n- newsHighlights\n\nYour output MUST:\n- Be under 3900 characters (hard limit)\n- Use bold formatting, section headers, emojis\n- Be readable in Telegram (no code blocks, no tables)\n- Merge macro, equity, crypto, FX, sentiment, and news into one coherent briefing\n- Never list more than 3–5 items per section\n- Automatically skip missing sections\n- Always personalize based on the user's:\n    • riskTolerance  \n    • investmentStyle  \n    • focusSectors  \n    • watchlist  \n\n-------------------------------------------------\n### 📌 **TASK: Produce the following sections cleanly and concisely**\n\n1. **🌅 Morning Opening (2–3 sentences)**  \n   - What type of day it is (risk-on, risk-off, mixed)\n   - Key overnight drivers\n   - State of sentiment (from `marketOverview.marketSentiment` & Reddit sentiment)\n\n2. **📊 Market Pulse**\n   - Summary of index movements with directional commentary  \n   - What is driving the moves (macro, earnings, flows, data releases)\n\n3. **💼 Portfolio Focus (Personalized)**\n   - Identify the most relevant watchlist movers  \n   - Link them to the user's style (\"growth\", \"value\", etc.)\n   - Highlight tickers in user's preferred sectors  \n   - Mention risk-adjusted impact based on their risk tolerance  \n   - Provide interpretation, not just stats  \n\n4. **🔥 High-Conviction Opportunities**\n   - Combine: trendingTickers + topMentionedTickers + largest watchlist movers  \n   - Provide 2–3 themes or trade ideas (NOT direct financial advice)  \n   - Use logic connecting sentiment ↔ price action ↔ macro context  \n\n5. **⚠️ Risk Alerts**\n   - Identify divergences (e.g., bullish Reddit vs. falling prices)  \n   - Mention volatility signals (VIX)  \n   - Tail risks from currencies, indices, or news  \n   - Keep it sharp and practical  \n\n6. **📈 Technical Lens (Top 3 Watchlist Only)**\n   Provide for each:\n   - Trend (bullish/bearish/neutral)  \n   - Key support and resistance levels  \n   - Momentum interpretation  \n\n7. **📰 News Impact**\n   - Summarize the top 3–5 headlines  \n   - Explain WHY each matters and WHO it affects  \n   - Prioritize news aligned with user focus sectors  \n\n8. **🎯 Actionable Takeaways**\n   - Provide 2–3 action items  \n   - They must be phrased as *analyst insights*, not advice  \n   - Example:  \n     \"Monitor NVDA today — heavy retail flow + positive sector momentum.\"  \n     \"FX weakness vs USD may impact earnings for tech exporters.\"  \n\n-------------------------------------------------\n### 🔧 **RULES**\n- Do NOT exceed the character limit  \n- Do NOT produce financial advice; focus on insight  \n- No filler sentences (\"as an AI model…\")  \n- No markdown tables  \n- Always keep formatting consistent  \n- Output ONLY the formatted Telegram message — no JSON, no explanations  \n\n-------------------------------------------------\n### 🧩 **Now generate the final briefing using this JSON input:**\n{{JSON.stringify($json.originalData)}}\n"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2,
+      "position": [
+        896,
+        -16
+      ],
+      "id": "ffd69c9b-234a-4348-a914-fced0967ec92",
+      "name": "Message a model",
+      "credentials": {
+        "openAiApi": {
+          "id": "KFeRyocTi8auoI0C",
+          "name": "OpenAi account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "### 🤖 AI Processing Phase\n\nOpenAI GPT-4 generates:\n- Personalized market briefing\n- Risk-adjusted recommendations\n- Action items based on profile",
+        "width": 300
+      },
+      "id": "2f058358-da79-483c-898b-79950f361ef6",
+      "name": "🤖 AI Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        896,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 🔄 Data Collection Phase\n\nParallel fetching from:\n- Reddit public JSON API (no auth!)\n  - 12 finance subreddits\n  - /r/subreddit/hot.json endpoint\n- Yahoo Finance (market data)\n- Yahoo Trending tickers\n- News RSS feeds",
+        "height": 180,
+        "width": 300
+      },
+      "id": "5e487f33-47cd-48b7-ad22-f694bd931566",
+      "name": "📥 Collection Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1216,
+        -704
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 📊 Advanced Financial Analyst Workflow\n\n### Features:\n- **Multi-source data aggregation**: Reddit (no auth needed!), Yahoo Finance, News RSS\n- **Personalized AI analysis**: GPT-4 powered insights tailored to your profile\n- **Real-time market data**: Stocks, indices, currencies, crypto\n- **Social sentiment analysis**: Reddit trend detection\n- **Telegram delivery**: Formatted reports with visual heatmaps\n\n### Setup Instructions:\n1. Configure your user profile in the Configuration node\n2. Add OpenAI API credentials\n3. Add Telegram Bot credentials (create via @BotFather)\n4. Set your Telegram Chat ID in Configuration node\n5. Customize watchlist and subreddits as needed\n6. Activate workflow!\n\n### No Reddit Auth Required!\nUses public Reddit JSON API (reddit.com/r/subreddit/hot.json)\n\n### FIXES APPLIED:\n- Fixed Quick Stats data extraction\n- Fixed Charts generation with null checks\n- Fixed Watchlist symbol tracking\n- Changed indices to ETF equivalents (SPY, QQQ, DIA)",
+        "height": 460,
+        "width": 420
+      },
+      "id": "c35d87f1-32b9-4e80-96e6-c6de40336d37",
+      "name": "📋 Instructions",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1760,
+        -528
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "cd9182e7-4a63-48d9-90dd-56bd87ace4d8",
+      "name": "⏸️ Wait for Batches",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -688,
+        -576
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.chartMessage }}",
+        "additionalFields": {
+          "disable_web_page_preview": true,
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "77925949-2fbc-4c16-9e3f-b70ba87f8b3d",
+      "name": "📨 Send Chart",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1472,
+        -16
+      ],
+      "webhookId": "156357e8-5e13-49ed-b816-bf5fe5a91b71",
+      "credentials": {
+        "telegramApi": {
+          "id": "hbDLbliKJ6Iny5X6",
+          "name": "Telegram account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// FIXED: Generate performance charts data for visualization\n\nlet originalData = {};\ntry {\n  originalData = $('✍️ Prepare AI Prompt').first().json.originalData || {};\n} catch (e) {\n  originalData = {};\n}\n\nlet config = {};\ntry {\n  config = $('⚙️ Configuration').first().json || {};\n} catch (e) {\n  config = { telegram: { chatId: '-5029947690' } };\n}\n\n// Safe helpers\nconst A = (x) => Array.isArray(x) ? x : [];\nconst N = (x, d = 0) => (typeof x === 'number' && !isNaN(x)) ? x : d;\n\n// Get watchlist data\nconst watchlistData = A(originalData.watchlistPerformance)\n  .filter(s => s.price !== null && typeof s.changePercent === 'number')\n  .sort((a, b) => N(b.changePercent) - N(a.changePercent))\n  .slice(0, 10);\n\n// Generate ASCII chart for Telegram\nif (watchlistData.length === 0) {\n  return [{\n    json: {\n      chartMessage: '*📊 WATCHLIST HEATMAP*\\n\\n⚠️ No watchlist data available.',\n      chatId: config.telegram?.chatId || '-5029947690'\n    }\n  }];\n}\n\nconst maxChange = Math.max(...watchlistData.map(s => Math.abs(N(s.changePercent, 0.01))));\n\nlet chart = '*📊 WATCHLIST HEATMAP*\\n\\n';\n\nwatchlistData.forEach(stock => {\n  const pct = N(stock.changePercent);\n  const barLength = Math.max(1, Math.round((Math.abs(pct) / (maxChange || 1)) * 10));\n  const bar = pct >= 0 \n    ? '🟩'.repeat(barLength)\n    : '🟥'.repeat(barLength);\n  const sign = pct >= 0 ? '+' : '';\n  chart += `${stock.symbol.padEnd(5)} ${bar} ${sign}${pct.toFixed(2)}%\\n`;\n});\n\n// Add sector heatmap based on reddit category activity\nconst categories = originalData?.redditInsights?.categoryBreakdown || {};\n\nif (Object.keys(categories).length > 0) {\n  chart += '\\n*🔥 REDDIT ACTIVITY BY CATEGORY*\\n\\n';\n\n  Object.entries(categories)\n    .filter(([_, count]) => count > 0)\n    .sort((a, b) => b[1] - a[1])\n    .forEach(([category, count]) => {\n      const heat = '🔥'.repeat(Math.min(5, Math.ceil(count / 2)));\n      chart += `${category.charAt(0).toUpperCase() + category.slice(1)}: ${heat} (${count} posts)\\n`;\n    });\n}\n\nreturn [{\n  json: {\n    chartMessage: chart,\n    chatId: config.telegram?.chatId || '-5029947690'\n  }\n}];"
+      },
+      "id": "d5369ef4-652a-427a-a5e4-baff3abdb3d7",
+      "name": "📊 Generate Charts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1248,
+        -32
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.messageContent }}",
+        "additionalFields": {
+          "disable_web_page_preview": true,
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "07441645-b2d7-427e-8b45-dd6e553213d6",
+      "name": "📨 Send to Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1472,
+        -208
+      ],
+      "webhookId": "6da0e8c0-fd73-4596-a0ff-5a78d8a02f53",
+      "credentials": {
+        "telegramApi": {
+          "id": "hbDLbliKJ6Iny5X6",
+          "name": "Telegram account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// FIXED: Format for Telegram with better data extraction\n\n// --- 1) Extract AI response correctly (supports LangChain + OpenAI) ---\nconst response = $input.first().json;\n\n// Try to get originalData from the AI Prompt node\nlet originalData = {};\ntry {\n  originalData = $('✍️ Prepare AI Prompt').first().json.originalData || {};\n} catch (e) {\n  originalData = {};\n}\n\nlet config = {};\ntry {\n  config = $('⚙️ Configuration').first().json || {};\n} catch (e) {\n  config = { telegram: { chatId: '-5029947690', maxMessageLength: 4000 } };\n}\n\n// Safe extraction function\nfunction extractAIContent(res) {\n  try {\n    // LangChain / n8n LLM node format:\n    if (res?.output?.[0]?.content?.[0]?.text) {\n      return res.output[0].content[0].text;\n    }\n    // Standard OpenAI ChatCompletion\n    if (res?.choices?.[0]?.message?.content) {\n      return res.choices[0].message.content;\n    }\n    // Some nodes return message.text\n    if (res?.message?.content) {\n      return res.message.content;\n    }\n    // As text\n    if (res?.text) {\n      return res.text;\n    }\n    // Some nodes use a direct \"content\" field\n    if (res?.content) {\n      return res.content;\n    }\n    // n8n OpenAI node sometimes returns directly\n    if (typeof res === 'string') {\n      return res;\n    }\n\n    return null;\n  } catch (err) {\n    return null;\n  }\n}\n\nlet content = extractAIContent(response);\nif (!content || content.trim().length < 5) {\n  content = \"⚠️ AI Analysis unavailable - please check OpenAI connection.\";\n}\n\n// --- 2) Build header ---\nconst date = new Date().toLocaleDateString('en-US', { \n  weekday: 'long', \n  year: 'numeric', \n  month: 'long', \n  day: 'numeric' \n});\n\nconst header = \n`📊 *FINANCIAL ANALYST DAILY BRIEFING*\n📅 ${date}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;\n\n// --- 3) FIXED Quick Stats with safe access ---\nconst safeNum = (val, decimals = 2) => {\n  if (typeof val === 'number' && !isNaN(val)) {\n    return val.toFixed(decimals);\n  }\n  return 'N/A';\n};\n\n// Get SPY (first index) data safely\nconst indices = originalData?.marketOverview?.indices || [];\nconst sp500 = indices.find(i => i.symbol === 'SPY') || indices[0] || {};\n\n// Get reddit sentiment safely\nconst sentiment = originalData?.redditInsights?.sentiment || { bullish: 0, bearish: 0 };\nconst topTicker = originalData?.redditInsights?.topMentionedTickers?.[0]?.ticker || 'N/A';\n\nconst quickStats = \n`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n📈 *Quick Stats*\n• S&P 500 (SPY): $${safeNum(sp500.price)} (${sp500.changePercent >= 0 ? '+' : ''}${safeNum(sp500.changePercent)}%)\n• Reddit Sentiment: ${sentiment.bullish}↑ / ${sentiment.bearish}↓\n• Top Mention: $${topTicker}\n`;\n\n// --- 4) Combine everything ---\nlet fullMessage = header + content + quickStats;\n\n// --- 5) Telegram message-splitting ---\nconst maxLength = config.telegram?.maxMessageLength || 4000;\nconst messages = [];\n\nif (fullMessage.length <= maxLength) {\n  messages.push(fullMessage);\n} else {\n  // Split by logical sections (AI output always has section headings)\n  const sections = fullMessage.split(/\\n(?=\\*\\*[🌅📊💼🔥⚠️📈🎯📰])/);\n\n  let current = \"\";\n  for (const section of sections) {\n    if ((current + \"\\n\" + section).length > maxLength) {\n      if (current.trim()) {\n        messages.push(current.trim());\n      }\n      current = section;\n    } else {\n      current += \"\\n\" + section;\n    }\n  }\n  if (current.trim()) messages.push(current.trim());\n}\n\n// Ensure at least one message\nif (messages.length === 0) {\n  messages.push(fullMessage.substring(0, maxLength));\n}\n\n// --- 6) Return the message parts ---\nreturn messages.map((msg, index) => ({\n  json: {\n    messageContent: msg,\n    messageIndex: index + 1,\n    totalMessages: messages.length,\n    chatId: config.telegram?.chatId || '-5029947690'\n  }\n}));"
+      },
+      "id": "6e6483d4-2ad7-4cd4-b17c-bd5915a2e257",
+      "name": "📱 Format for Telegram",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1248,
+        -208
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare prompt for OpenAI\nconst data = $input.first().json;\nconst profile = data.userProfile;\n\n// Helper: safe array → always returns an array\nconst A = (x) => Array.isArray(x) ? x : [];\nconst N = (x, d = 'N/A') => (typeof x === 'number' && !isNaN(x)) ? x.toFixed(2) : d;\n\nconst prompt = `You are an expert financial analyst assistant providing a personalized daily market briefing.\n\n## USER PROFILE:\n- Name: ${profile.name}\n- Risk Tolerance: ${profile.riskTolerance}\n- Investment Style: ${profile.investmentStyle}\n- Focus Sectors: ${profile.focusSectors.join(', ')}\n- Watchlist: ${profile.watchlist.join(', ')}\n\n## TODAY'S MARKET DATA:\n\n### MARKET INDICES:\n${A(data.marketOverview?.indices).map(i => `- ${i.name || i.symbol} (${i.symbol}): $${N(i.price)} (${i.changePercent >= 0 ? '+' : ''}${N(i.changePercent)}%)`).join('\\n') || 'No index data available'}\nMarket Sentiment: ${data.marketOverview?.marketSentiment || 'Unknown'}\nMarket State: ${data.marketOverview?.marketState || 'Unknown'}\n\n### WATCHLIST PERFORMANCE:\n${A(data.watchlistPerformance).map(s => `- ${s.symbol}: $${N(s.price)} (${s.changePercent >= 0 ? '+' : ''}${N(s.changePercent)}% today)`).join('\\n') || 'No watchlist data available'}\n\n### TOP GAINERS:\n${A(data.topGainers).map(s => `- ${s.symbol}: +${N(s.changePercent)}%`).join('\\n') || 'None'}\n\n### TOP LOSERS:\n${A(data.topLosers).map(s => `- ${s.symbol}: ${N(s.changePercent)}%`).join('\\n') || 'None'}\n\n### CURRENCIES:\n${A(data.currencies).map(c => `- ${c.pair}: ${N(c.rate)} (${c.change >= 0 ? '+' : ''}${N(c.change)}%)`).join('\\n') || 'No currency data'}\n\n### CRYPTOCURRENCY:\n${A(data.crypto).map(c => `- ${c.symbol}: $${N(c.price)} (${c.change >= 0 ? '+' : ''}${N(c.change)}%)`).join('\\n') || 'No crypto data'}\n\n### TRENDING TICKERS:\n${A(data.trendingTickers).map(t => `- ${t.symbol}: ${t.name}`).join('\\n') || 'No trending data'}\n\n### REDDIT MARKET SENTIMENT:\n- Total Analyzed Posts: ${data.redditInsights?.totalPosts || 0}\n- Bullish Posts: ${data.redditInsights?.sentiment?.bullish || 0}\n- Bearish Posts: ${data.redditInsights?.sentiment?.bearish || 0}\n- Neutral Posts: ${data.redditInsights?.sentiment?.neutral || 0}\n\n### MOST MENTIONED TICKERS ON REDDIT:\n${A(data.redditInsights?.topMentionedTickers).map(t => `- $${t.ticker}: ${t.mentions} mentions`).join('\\n') || 'No mentions found'}\n\n### TOP REDDIT DISCUSSIONS:\n${A(data.redditInsights?.topPosts).slice(0, 5).map(p => `- [r/${p.subreddit}] \"${p.title}\" (${p.score} upvotes, ${p.comments} comments) - Sentiment: ${p.sentiment}`).join('\\n') || 'No discussions found'}\n\n### LATEST NEWS HEADLINES:\n${A(data.newsHighlights).map(n => `- ${n.title}`).join('\\n') || 'No news available'}\n\n---\n\nBased on all this data, provide a personalized daily market briefing that includes:\n\n1. **🌅 Good Morning Summary** (2–3 sentences overview)\n2. **📊 Market Pulse**\n3. **💼 Portfolio Focus (Personalized)**\n4. **🔥 High-Conviction Opportunities**\n5. **⚠️ Risk Alerts**\n6. **📈 Technical Lens**\n7. **🎯 Action Items**\n8. **📰 News Impact**\n\nFormat for Telegram. Keep under 4000 characters.`;\n\nreturn [{ json: { prompt, originalData: data } }];"
+      },
+      "id": "da5e55a6-646f-49fd-a2ea-2d6216930047",
+      "name": "✍️ Prepare AI Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        688,
+        -16
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// FIXED: Compile All Data with proper data handling\n\n// --- SAFE HELPERS ---\nconst A = (x) => Array.isArray(x) ? x : [];   // safe array\nconst N = (x, d = 0) => (typeof x === 'number' && !isNaN(x) ? x : d);  // safe number\nconst S = (x, d = '') => (x ? String(x) : d);          // safe string\n\n// --- LOAD INPUTS ---\nconst all = $input.all();\nconst config = $('⚙️ Configuration').first().json;\n\n// Default containers\nlet redditPosts = [];\nlet marketData = [];\nlet trendingTickers = [];\nlet newsHeadlines = [];\n\n// --- MERGE ALL DATA PASSED IN ---\nfor (const item of all) {\n    if (item.json.redditPosts) redditPosts = A(item.json.redditPosts);\n    if (item.json.marketData) marketData = A(item.json.marketData);\n    if (item.json.trendingTickers) trendingTickers = A(item.json.trendingTickers);\n    if (item.json.newsHeadlines) newsHeadlines = A(item.json.newsHeadlines);\n}\n\n// --- REDDIT: CLEAN & SORT ---\nconst sortedPosts = A(redditPosts)\n    .sort((a, b) => N(b.engagementScore) - N(a.engagementScore))\n    .slice(0, 30);\n\n// Sentiment breakdown\nconst redditSentiment = {\n    bullish: sortedPosts.filter(p => p.sentiment === 'bullish').length,\n    bearish: sortedPosts.filter(p => p.sentiment === 'bearish').length,\n    neutral: sortedPosts.filter(p => p.sentiment === 'neutral').length\n};\n\n// Ticker mentions\nconst tickerCounts = {};\nfor (const p of sortedPosts) {\n    A(p.tickers).forEach(t => {\n        tickerCounts[t] = (tickerCounts[t] || 0) + 1;\n    });\n}\n\nconst topMentionedTickers = Object.entries(tickerCounts)\n    .sort((a, b) => b[1] - a[1])\n    .slice(0, 10)\n    .map(([ticker, mentions]) => ({ ticker, mentions }));\n\n// --- MARKET DATA PROCESSING ---\n// Normalize market data with proper defaults\nconst normalizedMarketData = marketData.map(d => ({\n    symbol: S(d.symbol),\n    name: S(d.name, d.symbol),\n    price: d.price !== null ? N(d.price) : null,\n    change: N(d.change),\n    changePercent: N(d.changePercent),\n    trend: S(d.trend, 'neutral'),\n    volume: N(d.volume),\n    marketState: S(d.marketState, 'unknown')\n}));\n\n// FIXED: Identify categories based on config\nconst indexSymbols = config.userProfile.indices || ['SPY', 'DIA', 'QQQ', 'VIXY'];\nconst currencySymbols = config.userProfile.currencies || [];\nconst cryptoSymbols = config.userProfile.crypto || [];\nconst watchlistSymbols = config.userProfile.watchlist || [];\n\nconst indices = normalizedMarketData.filter(x => indexSymbols.includes(x.symbol));\nconst stocks = normalizedMarketData.filter(x => watchlistSymbols.includes(x.symbol));\nconst currencies = normalizedMarketData.filter(x => currencySymbols.includes(x.symbol));\nconst crypto = normalizedMarketData.filter(x => cryptoSymbols.includes(x.symbol));\n\n// Market sentiment from stocks (watchlist)\nconst stocksWithPrice = stocks.filter(s => s.price !== null);\nconst bullishCount = stocksWithPrice.filter(s => N(s.changePercent) > 0).length;\nconst totalStocks = stocksWithPrice.length || 1;\nconst marketSentiment = Math.round((bullishCount / totalStocks) * 100);\n\n// --- GAINERS & LOSERS ---\nconst topGainers = stocks\n    .filter(s => s.price !== null && s.changePercent > 0)\n    .sort((a, b) => N(b.changePercent) - N(a.changePercent))\n    .slice(0, 5);\n\nconst topLosers = stocks\n    .filter(s => s.price !== null && s.changePercent < 0)\n    .sort((a, b) => N(a.changePercent) - N(b.changePercent))\n    .slice(0, 5);\n\n// --- BUILD FINAL STRUCTURE ---\nconst out = {\n    timestamp: new Date().toISOString(),\n    userProfile: config.userProfile,\n\n    marketOverview: {\n        indices: indices,\n        marketSentiment: `${marketSentiment}% bullish`,\n        marketState: indices.length > 0 ? indices[0].marketState : 'unknown'\n    },\n\n    watchlistPerformance: stocks,\n    topGainers,\n    topLosers,\n\n    currencies: currencies.map(c => ({\n        pair: c.symbol,\n        rate: c.price,\n        change: c.changePercent\n    })),\n\n    crypto: crypto.map(c => ({\n        symbol: c.symbol,\n        price: c.price,\n        change: c.changePercent,\n        trend: c.trend\n    })),\n\n    trendingTickers,\n\n    redditInsights: {\n        totalPosts: sortedPosts.length,\n        sentiment: redditSentiment,\n        topMentionedTickers,\n        topPosts: sortedPosts.slice(0, 10).map(p => ({\n            subreddit: p.subreddit,\n            title: p.title,\n            score: p.score,\n            comments: p.numComments,\n            sentiment: p.sentiment,\n            tickers: A(p.tickers),\n            url: p.url\n        })),\n        categoryBreakdown: {\n            retail: sortedPosts.filter(p => p.category === 'retail').length,\n            general: sortedPosts.filter(p => p.category === 'general').length,\n            fundamental: sortedPosts.filter(p => p.category === 'fundamental').length,\n            crypto: sortedPosts.filter(p => p.category === 'crypto').length,\n            macro: sortedPosts.filter(p => p.category === 'macro').length\n        }\n    },\n\n    newsHighlights: newsHeadlines.slice(0, 10)\n};\n\nreturn [{ json: out }];"
+      },
+      "id": "1b5f0b49-6c9e-46ec-b91e-14a0bb3e34fb",
+      "name": "📊 Compile All Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        -16
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "id": "9d832a34-729c-4a41-8ef3-4b2625da840a",
+      "name": "🔗 Merge News",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        368,
+        -272
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "id": "7722ef5b-91be-44fe-88eb-c7e2e7457017",
+      "name": "🔗 Merge Trending",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        208,
+        -464
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse RSS feed for news headlines\nconst xml = $input.first().json.data || $input.first().json;\n\ntry {\n  // Simple RSS parsing\n  const items = [];\n  const itemRegex = /<item>(.*?)<\\/item>/gs;\n  const titleRegex = /<title><!\\[CDATA\\[(.*?)\\]\\]><\\/title>|<title>(.*?)<\\/title>/;\n  const linkRegex = /<link>(.*?)<\\/link>/;\n  const pubDateRegex = /<pubDate>(.*?)<\\/pubDate>/;\n  const descRegex = /<description><!\\[CDATA\\[(.*?)\\]\\]><\\/description>|<description>(.*?)<\\/description>/;\n  \n  const xmlStr = typeof xml === 'string' ? xml : JSON.stringify(xml);\n  let match;\n  \n  while ((match = itemRegex.exec(xmlStr)) !== null && items.length < 15) {\n    const itemContent = match[1];\n    \n    const titleMatch = itemContent.match(titleRegex);\n    const linkMatch = itemContent.match(linkRegex);\n    const dateMatch = itemContent.match(pubDateRegex);\n    const descMatch = itemContent.match(descRegex);\n    \n    items.push({\n      title: (titleMatch?.[1] || titleMatch?.[2] || '').trim(),\n      link: (linkMatch?.[1] || '').trim(),\n      pubDate: dateMatch?.[1] || '',\n      description: (descMatch?.[1] || descMatch?.[2] || '').substring(0, 200).trim()\n    });\n  }\n  \n  return [{ json: { newsHeadlines: items } }];\n} catch (error) {\n  return [{ json: { newsHeadlines: [], error: error.message } }];\n}"
+      },
+      "id": "05b22113-a502-4cec-b96f-18f50e361451",
+      "name": "📑 Parse News RSS",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -304,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process trending tickers\nconst data = $input.first().json;\n\ntry {\n  const trending = data.finance?.result?.[0]?.quotes || [];\n  \n  const processed = trending.slice(0, 10).map(quote => ({\n    symbol: quote.symbol,\n    name: quote.shortName || quote.symbol\n  }));\n  \n  return [{ json: { trendingTickers: processed } }];\n} catch (error) {\n  return [{ json: { trendingTickers: [], error: error.message } }];\n}"
+      },
+      "id": "51d5b18e-809a-440f-8ebb-76830caf45ba",
+      "name": "📊 Process Trending",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -320,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://query1.finance.yahoo.com/v1/finance/trending/US",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "5347de9f-b364-40d1-886d-d82ab85e6820",
+      "name": "🔥 Yahoo Trending",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -544,
+        288
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "marketData",
+        "options": {}
+      },
+      "id": "8a4d1a9a-2c77-4cb1-a55b-89eb91f0a50d",
+      "name": "📦 Aggregate Market",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        -496,
+        32
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "valid-filter",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c6a74546-1d52-4777-a4f7-8722c88aeb0f",
+      "name": "✅ Filter Valid Data",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [
+        -48,
+        32
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// FIXED: Process Market Data with proper symbol tracking\nconst items = $input.all();\n\nconst out = [];\n\nfor (const item of items) {\n  const d = item.json;\n\n  // Get the symbol from the input (could be in different places)\n  const symbol = d.symbol || d.original || 'UNKNOWN';\n  \n  // Check if we have valid chart data\n  if (!d?.chart?.result?.[0]) {\n    out.push({ \n      json: { \n        symbol: symbol, \n        price: null,\n        change: 0,\n        changePercent: 0,\n        trend: 'neutral',\n        volume: 0,\n        valid: false \n      } \n    });\n    continue;\n  }\n\n  const result = d.chart.result[0];\n  const meta = result.meta || {};\n  const quote = result.indicators?.quote?.[0] || {};\n  const timestamps = result.timestamp || [];\n\n  // Get closing prices array\n  const closes = (quote.close || []).filter(n => typeof n === 'number');\n  const opens = (quote.open || []).filter(n => typeof n === 'number');\n  const volumes = (quote.volume || []).filter(n => typeof n === 'number');\n\n  // Get latest values\n  const latestClose = closes.length > 0 ? closes[closes.length - 1] : null;\n  const previousClose = closes.length > 1 ? closes[closes.length - 2] : (closes.length > 0 ? closes[0] : null);\n  const firstOpen = opens.length > 0 ? opens[0] : null;\n  \n  // Calculate price - prefer regularMarketPrice from meta, fallback to latest close\n  const price = meta.regularMarketPrice || latestClose;\n  \n  // Calculate change from previous close or first open\n  const referencePrice = meta.previousClose || previousClose || firstOpen;\n  const change = price && referencePrice ? (price - referencePrice) : 0;\n  const pct = referencePrice && referencePrice !== 0 ? (change / referencePrice) * 100 : 0;\n\n  // Get volume\n  const volume = meta.regularMarketVolume || (volumes.length > 0 ? volumes[volumes.length - 1] : 0);\n\n  // Determine trend\n  let trend = 'neutral';\n  if (pct > 0.5) trend = 'bullish';\n  else if (pct < -0.5) trend = 'bearish';\n\n  out.push({\n    json: {\n      symbol: symbol,\n      name: meta.shortName || meta.longName || symbol,\n      price: price ? Number(price.toFixed(2)) : null,\n      change: Number(change.toFixed(2)),\n      changePercent: Number(pct.toFixed(2)),\n      trend: trend,\n      volume: volume,\n      currency: meta.currency || 'USD',\n      marketState: meta.marketState || 'unknown',\n      valid: price !== null\n    }\n  });\n}\n\nreturn out;"
+      },
+      "id": "e1c5e231-3d23-4abe-8240-5f56c95165f7",
+      "name": "📉 Process Market Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -272,
+        -112
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get configuration\nconst config = $('⚙️ Configuration').first().json;\n\n// Build list of all symbols to fetch\nconst symbols = [\n  ...config.userProfile.watchlist,\n  ...config.userProfile.indices,\n  ...config.userProfile.currencies,\n  ...config.userProfile.crypto\n];\n\nreturn symbols.map(symbol => ({ json: { symbol } }));"
+      },
+      "id": "5d273a07-2c4a-4446-bb13-77da9c416144",
+      "name": "📊 Prepare Symbols",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1184,
+        32
+      ]
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "redditPosts",
+        "options": {}
+      },
+      "id": "90a1b706-8118-4159-ab5e-8dc7571433d2",
+      "name": "📦 Aggregate Reddit",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        -448,
+        -592
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "score-filter",
+              "leftValue": "={{ $json.engagementScore }}",
+              "rightValue": 10,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "7595dde4-f173-4d2c-aaa1-baaaa971e83c",
+      "name": "✅ Filter Quality Posts",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [
+        -80,
+        -352
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process Reddit public JSON API response\nconst inputData = $input.first().json;\nconst subredditInfo = $('📋 Split Subreddits1').first().json;\n\n// Handle the Reddit JSON structure\nconst posts = inputData.data?.children || [];\n\nconst processedPosts = posts.map(item => {\n  const post = item.data;\n  \n  // Extract ticker symbols from post title and selftext\n  const tickerRegex = /\\$([A-Z]{1,5})\\b|\\b([A-Z]{2,5})\\b(?=\\s+(?:stock|shares|calls|puts|options|earnings|squeeze|moon|dip))/gi;\n  const text = (post.title || '') + ' ' + (post.selftext || '');\n  const matches = [...text.matchAll(tickerRegex)];\n  const tickers = [...new Set(matches.map(m => (m[1] || m[2] || '').toUpperCase()).filter(t => t && t.length >= 2 && t.length <= 5))];\n  \n  // Filter out common words that look like tickers\n  const excludeWords = ['THE', 'AND', 'FOR', 'ARE', 'BUT', 'NOT', 'YOU', 'ALL', 'CAN', 'HAD', 'HER', 'WAS', 'ONE', 'OUR', 'OUT', 'DAY', 'GET', 'HAS', 'HIM', 'HIS', 'HOW', 'ITS', 'LET', 'MAY', 'NEW', 'NOW', 'OLD', 'SEE', 'TWO', 'WAY', 'WHO', 'BOY', 'DID', 'ETC', 'PUT', 'SAY', 'SHE', 'TOO', 'USE', 'CEO', 'CFO', 'USA', 'FDA', 'SEC', 'IPO', 'ETF', 'GDP', 'ATH', 'EOD', 'IMO', 'TBH', 'FYI', 'LOL', 'WTF', 'OMG', 'YOLO', 'FOMO', 'HODL', 'BTFD', 'THIS', 'THAT', 'WITH', 'HAVE', 'FROM', 'THEY', 'WILL', 'WHAT', 'WHEN', 'YOUR', 'JUST', 'BEEN', 'MORE', 'SOME', 'INTO', 'THAN', 'THEM', 'THEN', 'ONLY', 'OVER', 'SUCH', 'MAKE', 'LIKE', 'TIME', 'VERY', 'AFTER', 'MOST', 'ALSO', 'MADE', 'WELL', 'BACK', 'MUCH', 'THEN', 'TAKE', 'COME', 'COULD', 'GOOD', 'LONG', 'DOWN', 'EVEN', 'HERE', 'LAST', 'SAID', 'BEST', 'NEXT', 'NEED', 'EACH', 'WENT', 'POST', 'NEWS', 'EDIT', 'TLDR', 'LINK', 'FREE', 'HELP', 'LMAO', 'IDGAF'];\n  const filteredTickers = tickers.filter(t => !excludeWords.includes(t));\n  \n  // Calculate engagement score\n  const engagementScore = (post.score || 0) + ((post.num_comments || 0) * 2);\n  \n  // Determine sentiment indicators from title\n  const bullishWords = ['moon', 'rocket', 'bull', 'buy', 'long', 'calls', 'rally', 'breakout', 'undervalued', 'growth', 'tendies', 'gain', 'pump', 'squeeze', 'diamond', 'hands', 'holding', 'lambo', 'yolo', 'bullish', 'ATH', 'up', 'green', 'profit', 'winner'];\n  const bearishWords = ['crash', 'bear', 'sell', 'short', 'puts', 'dump', 'overvalued', 'bubble', 'correction', 'recession', 'loss', 'bag', 'holder', 'red', 'down', 'bearish', 'tank', 'drop', 'panic', 'fear', 'bleeding', 'rekt', 'rug', 'scam'];\n  \n  const titleLower = (post.title || '').toLowerCase();\n  const bullishCount = bullishWords.filter(w => titleLower.includes(w)).length;\n  const bearishCount = bearishWords.filter(w => titleLower.includes(w)).length;\n  \n  let sentiment = 'neutral';\n  if (bullishCount > bearishCount) sentiment = 'bullish';\n  else if (bearishCount > bullishCount) sentiment = 'bearish';\n  \n  return {\n    json: {\n      id: post.id,\n      subreddit: subredditInfo.name,\n      category: subredditInfo.category,\n      title: post.title,\n      selftext: post.selftext ? post.selftext.substring(0, 500) : '',\n      score: post.score || 0,\n      numComments: post.num_comments || 0,\n      engagementScore,\n      upvoteRatio: post.upvote_ratio || 0,\n      author: post.author,\n      createdUtc: post.created_utc,\n      url: `https://reddit.com${post.permalink}`,\n      tickers: filteredTickers,\n      sentiment,\n      flair: post.link_flair_text || 'None',\n      isOriginalContent: post.is_original_content || false,\n      awards: post.total_awards_received || 0,\n      domain: post.domain\n    }\n  };\n});\n\nreturn processedPosts;"
+      },
+      "id": "1f6687cb-1b5c-4153-84f2-d9fb9c90a7c7",
+      "name": "🔍 Process Posts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -224,
+        -400
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 1
+      },
+      "id": "8eb036cc-cb2a-43b6-9714-0d703ee45318",
+      "name": "⏳ Rate Limit Delay",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -448,
+        -400
+      ],
+      "webhookId": "rate-limit-wait"
+    },
+    {
+      "parameters": {
+        "url": "=https://www.reddit.com/r/{{ $json.name }}/{{ $json.sort || 'hot' }}.json",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "limit",
+              "value": "={{ $json.analysis.maxPostsPerSubreddit }}"
+            },
+            {
+              "name": "raw_json",
+              "value": "1"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) FinancialAnalystBot/1.0"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "342b1f96-8067-488d-9c59-4916b18a6950",
+      "name": "📰 Get Reddit Posts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -672,
+        -400
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "batchSize": 3,
+        "options": {}
+      },
+      "id": "99137419-e361-4ddc-adf1-b663b0e71e27",
+      "name": "🔄 Batch Process",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -912,
+        -448
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// User Configuration - Customize your preferences here\nconst config = {\n  // User profile for personalized summaries\n  userProfile: {\n    name: \"Financial Analyst\",\n    riskTolerance: \"moderate\", // conservative, moderate, aggressive\n    investmentStyle: \"growth\", // growth, value, dividend, mixed\n    focusSectors: [\"Technology\", \"Healthcare\", \"Finance\", \"Energy\"],\n    watchlist: [\"AAPL\", \"MSFT\", \"GOOGL\", \"AMZN\", \"NVDA\", \"META\", \"TSLA\", \"JPM\", \"V\", \"JNJ\"],\n    indices: [\"SPY\", \"DIA\", \"QQQ\", \"VIXY\"],\n    currencies: [\"EURUSD=X\", \"GBPUSD=X\", \"JPY=X\"],\n    crypto: [\"BTC-USD\", \"ETH-USD\"],\n    preferredTimeframe: \"daily\"\n  },\n  \n  // Reddit subreddits to monitor (finance-related with high engagement)\n  // Uses public JSON API: reddit.com/r/{subreddit}/{sort}.json\n  // Sort options: hot, new, top, rising\n  subreddits: [\n    { name: \"wallstreetbets\", minScore: 500, category: \"retail\", sort: \"hot\" },\n    { name: \"stocks\", minScore: 100, category: \"general\", sort: \"hot\" },\n    { name: \"investing\", minScore: 100, category: \"general\", sort: \"hot\" },\n    { name: \"StockMarket\", minScore: 50, category: \"general\", sort: \"hot\" },\n    { name: \"options\", minScore: 100, category: \"derivatives\", sort: \"hot\" },\n    { name: \"SecurityAnalysis\", minScore: 30, category: \"fundamental\", sort: \"hot\" },\n    { name: \"ValueInvesting\", minScore: 30, category: \"fundamental\", sort: \"hot\" },\n    { name: \"dividends\", minScore: 30, category: \"income\", sort: \"hot\" },\n    { name: \"CryptoCurrency\", minScore: 200, category: \"crypto\", sort: \"hot\" },\n    { name: \"economics\", minScore: 100, category: \"macro\", sort: \"hot\" },\n    { name: \"finance\", minScore: 50, category: \"general\", sort: \"hot\" },\n    { name: \"personalfinance\", minScore: 200, category: \"personal\", sort: \"hot\" }\n  ],\n  \n  // Analysis settings\n  analysis: {\n    maxPostsPerSubreddit: 15,\n    maxTotalPosts: 50,\n    sentimentAnalysis: true,\n    trendDetection: true,\n    tickerExtraction: true\n  },\n  \n  // Telegram settings\n  telegram: {\n    chatId: \"-5029947690\",\n    enableCharts: true,\n    splitLongMessages: true,\n    maxMessageLength: 4000\n  }\n};\n\nreturn [{ json: config }];"
+      },
+      "id": "80764744-d545-4ec8-96a9-2aa264aa3ba4",
+      "name": "⚙️ Configuration",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1392,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 24
+            }
+          ]
+        }
+      },
+      "id": "7dc0677d-f7d8-40ff-add2-2c1125bfcc7b",
+      "name": "⏰ Daily 7AM Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1664,
+        48
+      ]
+    }
+  ],
+  "connections": {
+    "📰 Yahoo News RSS": {
+      "main": [
+        [
+          {
+            "node": "📑 Parse News RSS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Yahoo Output": {
+      "main": [
+        [
+          {
+            "node": "📉 Process Market Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📈 Yahoo Finance Chart1": {
+      "main": [
+        [
+          {
+            "node": "Normalize Yahoo Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "❌ Error Handler": {
+      "main": [
+        [
+          {
+            "node": "📨 Send Error Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔗 Merge Reddit+Market": {
+      "main": [
+        [
+          {
+            "node": "🔗 Merge Trending",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📋 Split Subreddits1": {
+      "main": [
+        [
+          {
+            "node": "🔄 Batch Process",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "📊 Generate Charts",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "📱 Format for Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⏸️ Wait for Batches": {
+      "main": [
+        [
+          {
+            "node": "📦 Aggregate Reddit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📊 Generate Charts": {
+      "main": [
+        [
+          {
+            "node": "📨 Send Chart",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📱 Format for Telegram": {
+      "main": [
+        [
+          {
+            "node": "📨 Send to Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "✍️ Prepare AI Prompt": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📊 Compile All Data": {
+      "main": [
+        [
+          {
+            "node": "✍️ Prepare AI Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔗 Merge News": {
+      "main": [
+        [
+          {
+            "node": "📊 Compile All Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔗 Merge Trending": {
+      "main": [
+        [
+          {
+            "node": "🔗 Merge News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📑 Parse News RSS": {
+      "main": [
+        [
+          {
+            "node": "🔗 Merge News",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "📊 Process Trending": {
+      "main": [
+        [
+          {
+            "node": "🔗 Merge Trending",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "🔥 Yahoo Trending": {
+      "main": [
+        [
+          {
+            "node": "📊 Process Trending",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📦 Aggregate Market": {
+      "main": [
+        [
+          {
+            "node": "🔗 Merge Reddit+Market",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "✅ Filter Valid Data": {
+      "main": [
+        [
+          {
+            "node": "📦 Aggregate Market",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📉 Process Market Data": {
+      "main": [
+        [
+          {
+            "node": "✅ Filter Valid Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📊 Prepare Symbols": {
+      "main": [
+        [
+          {
+            "node": "📈 Yahoo Finance Chart1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📦 Aggregate Reddit": {
+      "main": [
+        [
+          {
+            "node": "🔗 Merge Reddit+Market",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "✅ Filter Quality Posts": {
+      "main": [
+        [
+          {
+            "node": "🔄 Batch Process",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔍 Process Posts": {
+      "main": [
+        [
+          {
+            "node": "✅ Filter Quality Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⏳ Rate Limit Delay": {
+      "main": [
+        [
+          {
+            "node": "🔍 Process Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📰 Get Reddit Posts": {
+      "main": [
+        [
+          {
+            "node": "⏳ Rate Limit Delay",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔄 Batch Process": {
+      "main": [
+        [
+          {
+            "node": "📰 Get Reddit Posts",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "⏸️ Wait for Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⚙️ Configuration": {
+      "main": [
+        [
+          {
+            "node": "📰 Yahoo News RSS",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "📋 Split Subreddits1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "🔥 Yahoo Trending",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "📊 Prepare Symbols",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⏰ Daily 7AM Trigger": {
+      "main": [
+        [
+          {
+            "node": "⚙️ Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "0b472e1fbe954ba38be8c5086fe74ee95bbf435aa578ad28ffdcb7c13633582a"
+  }
+}
