@@ -4,12 +4,16 @@ Real-time macro + equity + crypto sentiment workflow built in n8n, generating co
 This system autonomously collects market data, extracts signals, interprets sentiment, builds performance charts, and sends you an AI-written daily briefing at 7AM — tailored to your risk profile, trading style & watchlist.
 
 🚀 Features
-FeatureDescription📊
-Market Data
+
+Feature Description
+
+📊Market Data
 Yahoo Finance price feeds — indices, watchlist, currencies, crypto📰 News Sentiment
-RSS headline scraping through Yahoo Finance News🧠 Reddit Analysis
-Ticker extraction, sentiment scoring, top comment filtering🔥 
-Trending Assets
+RSS headline scraping through Yahoo Finance News
+🧠 Reddit Analysis
+Ticker extraction, sentiment scoring, top comment filtering
+
+🔥 Trending Assets
 Pulls Yahoo Finance trending tickers live
 
 🧩 AI Market Briefing
