@@ -1,4 +1,4 @@
-📘 README.md
+
 AI Financial Analyst — Automated Market Intelligence System
 Real-time macro + equity + crypto sentiment workflow built in n8n, generating compressed, insight-dense Telegram briefings using GPT-4.
 This system autonomously collects market data, extracts signals, interprets sentiment, builds performance charts, and sends you an AI-written daily briefing at 7AM — tailored to your risk profile, trading style & watchlist.
