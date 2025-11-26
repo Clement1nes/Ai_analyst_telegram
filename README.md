@@ -6,8 +6,12 @@ This system autonomously collects market data, extracts signals, interprets sent
 🚀 Features
 FeatureDescription📊
 Market Data
-Yahoo Finance price feeds — indices, watchlist, currencies, crypto📰 News SentimentRSS headline scraping through Yahoo Finance News🧠 Reddit AnalysisTicker extraction, sentiment scoring, top comment filtering🔥 Trending Assets
+Yahoo Finance price feeds — indices, watchlist, currencies, crypto📰 News Sentiment
+RSS headline scraping through Yahoo Finance News🧠 Reddit Analysis
+Ticker extraction, sentiment scoring, top comment filtering🔥 
+Trending Assets
 Pulls Yahoo Finance trending tickers live
+
 🧩 AI Market Briefing
 GPT-4 writes formatted Telegram-ready morning report
 📉 Heatmap Generation
