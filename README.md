@@ -4,7 +4,9 @@ Real-time macro + equity + crypto sentiment workflow built in n8n, generating co
 This system autonomously collects market data, extracts signals, interprets sentiment, builds performance charts, and sends you an AI-written daily briefing at 7AM — tailored to your risk profile, trading style & watchlist.
 
 🚀 Features
-FeatureDescription📊 Market DataYahoo Finance price feeds — indices, watchlist, currencies, crypto📰 News SentimentRSS headline scraping through Yahoo Finance News🧠 Reddit AnalysisTicker extraction, sentiment scoring, top comment filtering🔥 Trending AssetsPulls Yahoo Finance trending tickers live🧩 AI Market BriefingGPT-4 writes formatted Telegram-ready morning report📉 Heatmap GenerationWatchlist performance rendered as ASCII heatmap📡 Fully AutomatedDaily schedule trigger + configurable runtime❗ Error ProtectionTelegram alerting on workflow failure
+FeatureDescription📊
+Market DataYahoo Finance price feeds — indices, watchlist, currencies, crypto📰 News SentimentRSS headline scraping through Yahoo Finance News🧠 Reddit AnalysisTicker extraction, sentiment scoring, top comment filtering🔥 Trending Assets
+Pulls Yahoo Finance trending tickers live🧩 AI Market BriefingGPT-4 writes formatted Telegram-ready morning report📉 Heatmap GenerationWatchlist performance rendered as ASCII heatmap📡 Fully AutomatedDaily schedule trigger + configurable runtime❗ Error ProtectionTelegram alerting on workflow failure
 
 🏗 System Architecture
 Yahoo Finance → Market Data Engine → Aggregator → AI Prompt → GPT-4
@@ -129,6 +131,7 @@ Risk-Controlled	Emphasize drawdown risk, macro uncertainty alerts
 News-Driven	Increase importance of headlines & cross-market impact
 Shorter Output	Lower word count / bullet structure
 Longer & Deep Analysis	Raise detail caps + enable expansion sections
+
 🔧 Example Prompt Modifications
 1) More Quantitative + Institutional Tone
 + Prioritise volatility regime, liquidity trend, macro drivers.
@@ -184,7 +187,7 @@ Modify prompt to respond conditionally:
 + If short_output_mode = true → compress to <2000 chars max.
 + If enable_macro_priority = true → start with rates, CPI, yields, USD.
 
-⚡ Example Full Override Prompt You Can Paste In
+⚡Example Full Override Prompt You Can Paste In
 Rewrite briefing with:
 - Institutional tone similar to Goldman/JP morning notes.
 - Clear bullish/bearish stance on each watchlist item.
